@@ -29,9 +29,9 @@ palettes:
 
   ; Sprite Palette
   .byte $0f, $20, $10, $00
-  .byte $0f, $24, $30, $05
-  .byte $0f, $00, $00, $00
-  .byte $0f, $00, $00, $00
+  .byte $0f, $35, $15, $05
+  .byte $0f, $39, $19, $09
+  .byte $0f, $3C, $1C, $0C
 
 ; Pointers to each sprite Y position in memory.
 positionYList:
@@ -49,19 +49,23 @@ positionXList:
   .byte $33, $37, $3B, $3F
   .byte $43, $47, $4B, $4F
 
-; Pointers to each sprite X position in memory.
-pallettePointers:
+spriteCount = * - positionXList
+
+; Pointers to each sprite palette in memory.
+paletteData:
   .byte $02, $06, $0A, $0E
   .byte $12, $16, $1A, $1E
   .byte $22, $26, $2A, $2E
   .byte $32, $36, $3A, $3E
   .byte $42, $46, $4A, $4E
 
+paletteSize = * - paletteData
+
 .segment "BSS"
 sprites:
   .res $ff
 
-palettesPointers:
+palettePointers:
   .res $14
 
 yPointer:
@@ -74,6 +78,9 @@ xDirection:
   .res 1
 
 yDirection:
+  .res 1
+
+paletteIndex:
   .res 1
 
   ; Character memory
@@ -202,7 +209,7 @@ UpdateXPosition:
     sta sprites, y
 
     inx
-    cpx #$14
+    cpx #spriteCount
     bne @updateX
 
   rts
@@ -222,7 +229,7 @@ UpdateXPosition:
     sta sprites, y
 
     inx
-    cpx #$14
+    cpx #spriteCount
     bne @updateXTwo
 
   rts
@@ -246,7 +253,7 @@ UpdateYPosition:
     sta sprites, y
 
     inx
-    cpx #$14
+    cpx #spriteCount
     bne @updateY
 
   rts
@@ -283,14 +290,18 @@ checkHorizontalBounds:
   cmp #$05
   bcc @goRight
 
-  rts
+  rts ; Return when dvdX is inside the boundaries.
 
 @goLeft:
+  jsr updatePaletteIndex
+
   lda #$00
   sta xDirection
   rts
 
 @goRight:
+  jsr updatePaletteIndex
+
   lda #$01
   sta xDirection
   rts
@@ -310,11 +321,45 @@ checkVerticalBounds:
   rts
 
 @goDown:
+  jsr updatePaletteIndex
+
   lda #$00
   sta yDirection
   rts
 
 @goUp:
+  jsr updatePaletteIndex
   lda #$01
   sta yDirection
+  rts
+
+updatePaletteIndex:
+  
+  inc paletteIndex
+
+  ldx paletteIndex
+  cpx #$04
+  beq @resetPaletteIndex
+  jmp testSkip
+
+@resetPaletteIndex:
+  lda #$00
+  sta paletteIndex
+
+testSkip:
+  
+  ldy paletteIndex
+  
+  ldx $00
+  @loop:
+    lda paletteData, x
+    tay
+    
+    lda paletteIndex
+    sta sprites, y
+
+    inx
+    cpx #paletteSize
+    bne @loop
+  
   rts
